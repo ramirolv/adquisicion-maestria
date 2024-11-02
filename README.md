@@ -1,1 +1,1 @@
-# aseguramiento-maestria
+# adquisicion-maestria
