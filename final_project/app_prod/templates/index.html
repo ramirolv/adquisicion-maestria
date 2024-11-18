@@ -1,0 +1,345 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Data Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="app" class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">Flight Data Management</h1>
+        
+        <!-- Navigation Tabs -->
+        <div class="mb-6">
+            <button 
+                v-for="tab in tabs" 
+                :key="tab"
+                @click="currentTab = tab"
+                :class="['px-4 py-2 mr-2 rounded', currentTab === tab ? 'bg-blue-500 text-white' : 'bg-gray-200']"
+            >
+                [[ tab ]]
+            </button>
+        </div>
+
+        <!-- Airlines Form -->
+        <div v-if="currentTab === 'Airlines'" class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Add Airline</h2>
+            <form @submit.prevent="submitAirline" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">IATA Code</label>
+                    <input v-model="airlineForm.iata_code" type="text" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Airline Name</label>
+                    <input v-model="airlineForm.airline" type="text" class="w-full p-2 border rounded" required>
+                </div>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Add Airline
+                </button>
+            </form>
+        </div>
+
+        <!-- Airports Form -->
+        <div v-if="currentTab === 'Airports'" class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Add Airport</h2>
+            <form @submit.prevent="submitAirport" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">IATA Code</label>
+                        <input v-model="airportForm.iata_code" type="text" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Airport Name</label>
+                        <input v-model="airportForm.airport" type="text" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">City</label>
+                        <input v-model="airportForm.city" type="text" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">State</label>
+                        <input v-model="airportForm.state" type="text" class="w-full p-2 border rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Country</label>
+                        <input v-model="airportForm.country" type="text" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Latitude</label>
+                        <input v-model="airportForm.latitude" type="number" step="0.000001" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Longitude</label>
+                        <input v-model="airportForm.longitude" type="number" step="0.000001" class="w-full p-2 border rounded" required>
+                    </div>
+                </div>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Add Airport
+                </button>
+            </form>
+        </div>
+
+        <!-- Flights Form -->
+        <div v-if="currentTab === 'Flights'" class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Add Flight</h2>
+            <form @submit.prevent="submitFlight" class="space-y-4">
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Year</label>
+                        <input v-model="flightForm.year" type="number" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Month</label>
+                        <input v-model="flightForm.month" type="number" min="1" max="12" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Day</label>
+                        <input v-model="flightForm.day" type="number" min="1" max="31" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Airline</label>
+                        <select v-model="flightForm.airline" class="w-full p-2 border rounded" required>
+                            <option v-for="airline in airlines" :value="airline.iata_code">
+                                [[airline.airline]] ([[airline.iata_code]])
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Flight Number</label>
+                        <input v-model="flightForm.flight_number" type="text" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Tail Number</label>
+                        <input v-model="flightForm.tail_number" type="text" class="w-full p-2 border rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Origin Airport</label>
+                        <select v-model="flightForm.origin_airport" class="w-full p-2 border rounded" required>
+                            <option v-for="airport in airports" :value="airport.iata_code">
+                                [[airport.airport]] ([[airport.iata_code]])
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Destination Airport</label>
+                        <select v-model="flightForm.destination_airport" class="w-full p-2 border rounded" required>
+                            <option v-for="airport in airports" :value="airport.iata_code">
+                                [[airport.airport]] ([[airport.iata_code]])
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Scheduled Departure</label>
+                        <input v-model="flightForm.scheduled_departure" type="datetime-local" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Actual Departure</label>
+                        <input v-model="flightForm.departure_time" type="datetime-local" class="w-full p-2 border rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Scheduled Arrival</label>
+                        <input v-model="flightForm.scheduled_arrival" type="datetime-local" class="w-full p-2 border rounded" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Actual Arrival</label>
+                        <input v-model="flightForm.arrival_time" type="datetime-local" class="w-full p-2 border rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Distance (miles)</label>
+                        <input v-model="flightForm.distance" type="number" step="0.1" class="w-full p-2 border rounded" required>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Cancelled</label>
+                        <input v-model="flightForm.cancelled" type="checkbox" class="p-2">
+                    </div>
+                    <div v-if="flightForm.cancelled">
+                        <label class="block text-sm font-medium mb-1">Cancellation Reason</label>
+                        <select v-model="flightForm.cancellation_reason" class="w-full p-2 border rounded">
+                            <option value="A">Airline/Carrier</option>
+                            <option value="B">Weather</option>
+                            <option value="C">National Air System</option>
+                            <option value="D">Security</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Air System Delay (min)</label>
+                        <input v-model="flightForm.air_system_delay" type="number" class="w-full p-2 border rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Security Delay (min)</label>
+                        <input v-model="flightForm.security_delay" type="number" class="w-full p-2 border rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Airline Delay (min)</label>
+                        <input v-model="flightForm.airline_delay" type="number" class="w-full p-2 border rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Late Aircraft Delay (min)</label>
+                        <input v-model="flightForm.late_aircraft_delay" type="number" class="w-full p-2 border rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Weather Delay (min)</label>
+                        <input v-model="flightForm.weather_delay" type="number" class="w-full p-2 border rounded">
+                    </div>
+                </div>
+
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Add Flight
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            delimiters: ['[[', ']]'],
+            data() {
+                return {
+                    tabs: ['Airlines', 'Airports', 'Flights'],
+                    currentTab: 'Airlines',
+                    airlines: [],
+                    airports: [],
+                    airlineForm: {
+                        iata_code: '',
+                        airline: ''
+                    },
+                    airportForm: {
+                        iata_code: '',
+                        airport: '',
+                        city: '',
+                        state: '',
+                        country: '',
+                        latitude: '',
+                        longitude: ''
+                    },
+                    flightForm: {
+                        year: new Date().getFullYear(),
+                        month: new Date().getMonth() + 1,
+                        day: new Date().getDate(),
+                        day_of_week: new Date().getDay(),
+                        airline: '',
+                        flight_number: '',
+                        tail_number: '',
+                        origin_airport: '',
+                        destination_airport: '',
+                        scheduled_departure: '',
+                        departure_time: '',
+                        scheduled_arrival: '',
+                        arrival_time: '',
+                        distance: '',
+                        cancelled: false,
+                        cancellation_reason: '',
+                        air_system_delay: 0,
+                        security_delay: 0,
+                        airline_delay: 0,
+                        late_aircraft_delay: 0,
+                        weather_delay: 0
+                    }
+                }
+            },
+            methods: {
+                async loadAirlines() {
+                    const response = await fetch('/api/airlines')
+                    this.airlines = await response.json()
+                },
+                async loadAirports() {
+                    const response = await fetch('/api/airports')
+                    this.airports = await response.json()
+                },
+                async submitAirline() {
+                    const response = await fetch('/api/airlines', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(this.airlineForm)
+                    })
+                    if (response.ok) {
+                        this.airlineForm = {
+                            iata_code: '',
+                            airline: ''
+                        }
+                        this.loadAirlines()
+                        alert('Airline added successfully')
+                    }
+                },
+                async submitAirport() {
+                    const response = await fetch('/api/airports', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(this.airportForm)
+                    })
+                    if (response.ok) {
+                        this.airportForm = {
+                            iata_code: '',
+                            airport: '',
+                            city: '',
+                            state: '',
+                            country: '',
+                            latitude: '',
+                            longitude: ''
+                        }
+                        this.loadAirports()
+                        alert('Airport added successfully')
+                    }
+                },
+                async submitFlight() {
+                    const response = await fetch('/api/flights', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(this.flightForm)
+                    })
+                    if (response.ok) {
+                        this.resetFlightForm()
+                        alert('Flight added successfully')
+                    }
+                },
+                resetFlightForm() {
+                    this.flightForm = {
+                        year: new Date().getFullYear(),
+                        month: new Date().getMonth() + 1,
+                        day: new Date().getDate(),
+                        day_of_week: new Date().getDay(),
+                        airline: '',
+                        flight_number: '',
+                        tail_number: '',
+                        origin_airport: '',
+                        destination_airport: '',
+                        scheduled_departure: '',
+                        departure_time: '',
+                        scheduled_arrival: '',
+                        arrival_time: '',
+                        distance: '',
+                        cancelled: false,
+                        cancellation_reason: '',
+                        air_system_delay: 0,
+                        security_delay: 0,
+                        airline_delay: 0,
+                        late_aircraft_delay: 0,
+                        weather_delay: 0
+                    }
+                }
+            },
+            mounted() {
+                this.loadAirlines()
+                this.loadAirports()
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
