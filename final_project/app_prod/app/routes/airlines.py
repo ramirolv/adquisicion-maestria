@@ -1,9 +1,11 @@
 # app/routes/airlines.py
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from flasgger import swag_from
 from app import db
 from app.models import Airline
+import csv
+import io
 
 airlines_bp = Blueprint('airlines', __name__)
 
@@ -69,7 +71,57 @@ def handle_airlines():
             db.session.commit()
             return jsonify({'message': 'Airline added successfully'}), 201
         except Exception as e:
+            db.session.rollback()
             return jsonify({'error': str(e)}), 500
     else:
         airlines = Airline.query.all()
         return jsonify([{'iata_code': a.iata_code, 'airline': a.airline} for a in airlines])
+
+@airlines_bp.route('/download', methods=['GET'])
+@swag_from({
+    'responses': {
+        200: {
+            'description': 'Descarga de aerolíneas en formato CSV',
+            'content': {
+                'text/csv': {
+                    'schema': {
+                        'type': 'string',
+                        'format': 'binary'
+                    }
+                }
+            }
+        },
+        500: {
+            'description': 'Error interno del servidor'
+        }
+    },
+    'tags': ['Aerolíneas']
+})
+def download_airlines():
+    try:
+        # Consultar todas las aerolíneas
+        airlines = Airline.query.all()
+
+        # Crear un objeto StringIO para escribir el CSV en memoria
+        si = io.StringIO()
+        cw = csv.writer(si)
+
+        # Escribir la cabecera del CSV
+        cw.writerow(['IATA Code', 'Airline'])
+
+        # Escribir los datos de aerolíneas
+        for airline in airlines:
+            cw.writerow([airline.iata_code, airline.airline])
+
+        # Obtener el contenido del CSV
+        output = si.getvalue()
+        si.close()
+
+        # Crear una respuesta con el contenido del CSV
+        return Response(
+            output,
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment;filename=airlines.csv'}
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

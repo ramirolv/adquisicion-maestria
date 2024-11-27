@@ -1,9 +1,11 @@
 # app/routes/airports.py
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from flasgger import swag_from
 from app import db
 from app.models import Airport
+import csv
+import io
 
 airports_bp = Blueprint('airports', __name__)
 
@@ -84,6 +86,7 @@ def handle_airports():
             db.session.commit()
             return jsonify({'message': 'Airport added successfully'}), 201
         except Exception as e:
+            db.session.rollback()
             return jsonify({'error': str(e)}), 500
     else:
         airports = Airport.query.all()
@@ -96,3 +99,60 @@ def handle_airports():
             'latitude': a.latitude,
             'longitude': a.longitude
         } for a in airports])
+
+@airports_bp.route('/download', methods=['GET'])
+@swag_from({
+    'responses': {
+        200: {
+            'description': 'Descarga de aeropuertos en formato CSV',
+            'content': {
+                'text/csv': {
+                    'schema': {
+                        'type': 'string',
+                        'format': 'binary'
+                    }
+                }
+            }
+        },
+        500: {
+            'description': 'Error interno del servidor'
+        }
+    },
+    'tags': ['Aeropuertos']
+})
+def download_airports():
+    try:
+        # Consultar todos los aeropuertos
+        airports = Airport.query.all()
+
+        # Crear un objeto StringIO para escribir el CSV en memoria
+        si = io.StringIO()
+        cw = csv.writer(si)
+
+        # Escribir la cabecera del CSV
+        cw.writerow(['IATA Code', 'Airport', 'City', 'State', 'Country', 'Latitude', 'Longitude'])
+
+        # Escribir los datos de aeropuertos
+        for airport in airports:
+            cw.writerow([
+                airport.iata_code,
+                airport.airport,
+                airport.city,
+                airport.state if airport.state else '',
+                airport.country,
+                airport.latitude,
+                airport.longitude
+            ])
+
+        # Obtener el contenido del CSV
+        output = si.getvalue()
+        si.close()
+
+        # Crear una respuesta con el contenido del CSV
+        return Response(
+            output,
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment;filename=airports.csv'}
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

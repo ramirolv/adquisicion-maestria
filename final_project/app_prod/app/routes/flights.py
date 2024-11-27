@@ -1,12 +1,14 @@
 # app/routes/flights.py
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response, current_app, stream_with_context
 from flasgger import swag_from
 from app import db
 from app.models import Flight
-from datetime import datetime
+import csv
+import io
 
 flights_bp = Blueprint('flights', __name__)
+
 
 @flights_bp.route('', methods=['GET', 'POST'])
 @swag_from({
@@ -126,6 +128,7 @@ def handle_flights():
             db.session.commit()
             return jsonify({'message': 'Flight added successfully'}), 201
         except Exception as e:
+            db.session.rollback()
             return jsonify({'error': str(e)}), 500
     else:
         flights = Flight.query.all()
@@ -145,3 +148,95 @@ def handle_flights():
             'departure_delay': f.departure_delay,
             # Agregar otros campos según sea necesario
         } for f in flights])
+
+
+
+@flights_bp.route('/download', methods=['GET'])
+@swag_from({
+    'responses': {
+        200: {
+            'description': 'Descarga de vuelos en formato CSV',
+            'content': {
+                'text/csv': {
+                    'schema': {
+                        'type': 'string',
+                        'format': 'binary'
+                    }
+                }
+            }
+        },
+        500: {
+            'description': 'Error interno del servidor'
+        }
+    },
+    'tags': ['Vuelos']
+})
+def download_flights():
+    def generate():
+        try:
+            # Crear un objeto StringIO para el encabezado
+            data = io.StringIO()
+            writer = csv.writer(data)
+            writer.writerow([
+                'ID', 'Year', 'Month', 'Day', 'Day of Week', 'Airline', 'Flight Number',
+                'Tail Number', 'Origin Airport', 'Destination Airport', 'Scheduled Departure',
+                'Departure Time', 'Departure Delay', 'Taxi Out', 'Wheels Off', 'Scheduled Time',
+                'Elapsed Time', 'Air Time', 'Distance', 'Wheels On', 'Taxi In',
+                'Scheduled Arrival', 'Arrival Time', 'Arrival Delay', 'Diverted',
+                'Cancelled', 'Cancellation Reason', 'Air System Delay', 'Security Delay',
+                'Airline Delay', 'Late Aircraft Delay', 'Weather Delay'
+            ])
+            yield data.getvalue()
+            data.seek(0)
+            data.truncate(0)
+
+            # Usar yield_per para iterar en batches y evitar cargar todo en memoria
+            query = Flight.query.yield_per(1000).enable_eagerloads(False)
+            for flight in query:
+                writer.writerow([
+                    flight.id,
+                    flight.year,
+                    flight.month,
+                    flight.day,
+                    flight.day_of_week,
+                    flight.airline,
+                    flight.flight_number,
+                    flight.tail_number if flight.tail_number else '',
+                    flight.origin_airport,
+                    flight.destination_airport,
+                    flight.scheduled_departure,
+                    flight.departure_time,
+                    flight.departure_delay,
+                    flight.taxi_out if flight.taxi_out is not None else '',
+                    flight.wheels_off.isoformat() if flight.wheels_off else '',
+                    flight.scheduled_time if flight.scheduled_time is not None else '',
+                    flight.elapsed_time if flight.elapsed_time is not None else '',
+                    flight.air_time if flight.air_time is not None else '',
+                    flight.distance if flight.distance is not None else '',
+                    flight.wheels_on.isoformat() if flight.wheels_on else '',
+                    flight.taxi_in if flight.taxi_in is not None else '',
+                    flight.scheduled_arrival.isoformat() if flight.scheduled_arrival else '',
+                    flight.arrival_time.isoformat() if flight.arrival_time else '',
+                    flight.arrival_delay if flight.arrival_delay is not None else '',
+                    flight.diverted,
+                    flight.cancelled,
+                    flight.cancellation_reason if flight.cancellation_reason else '',
+                    flight.air_system_delay if flight.air_system_delay is not None else '',
+                    flight.security_delay if flight.security_delay is not None else '',
+                    flight.airline_delay if flight.airline_delay is not None else '',
+                    flight.late_aircraft_delay if flight.late_aircraft_delay is not None else '',
+                    flight.weather_delay if flight.weather_delay is not None else ''
+                ])
+                yield data.getvalue()
+                data.seek(0)
+                data.truncate(0)
+        except Exception as e:
+            # Registrar el error en los logs
+            current_app.logger.error(f"Error al descargar vuelos: {str(e)}")
+            yield ''  # Puedes optar por no yield nada o un mensaje de error
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment;filename=flights.csv'}
+    )
